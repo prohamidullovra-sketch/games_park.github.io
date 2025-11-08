@@ -93,6 +93,7 @@ function spinRoulette() {
                 spinBtn.classList.add('pulse');
                 spinBtn.disabled = false;
                 isSpinning = false;
+                sendToGoogleSheets('roulette', 5, result.coins);
             }, 2000);
             
         }, 4000);
@@ -193,7 +194,8 @@ function buyItem() {
             <div class="result-text">🎉 Поздравляем с покупкой!</div>
             <div style="font-size: 14px; color: #666;">Вы приобрели: ${item}</div>
         `;
-        
+
+        sendToGoogleSheets('purchase', price, 0);
         saveResult(`🛍️ Куплен: ${item}`);
         selectedShopItem = null;
         document.querySelectorAll('.shop-item').forEach(item => item.classList.remove('selected'));
