@@ -1,54 +1,128 @@
-// Система монет
-let userBalance = parseInt(localStorage.getItem('taxiBalance')) || 100;
+// Система монет с улучшенным локальным сохранением
+let userBalance = 100;
 let selectedShopItem = null;
+let currentGame = 'roulette';
+let isSpinning = false;
+let resultsHistory = [];
+
+// Инициализация данных пользователя
+function initUserData() {
+    const userId = getUserId();
+    const userData = JSON.parse(localStorage.getItem(`taxiUser_${userId}`)) || {};
+    
+    userBalance = userData.balance || 100;
+    resultsHistory = userData.history || [];
+    selectedShopItem = null;
+    
+    updateBalance();
+}
+
+// Получение уникального ID пользователя
+function getUserId() {
+    let userId = localStorage.getItem('taxiUserId');
+    if (!userId) {
+        userId = 'user_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+        localStorage.setItem('taxiUserId', userId);
+    }
+    return userId;
+}
+
+// Сохранение данных пользователя
+function saveUserData() {
+    const userId = getUserId();
+    const userData = {
+        balance: userBalance,
+        history: resultsHistory,
+        lastPlay: new Date().toISOString()
+    };
+    localStorage.setItem(`taxiUser_${userId}`, JSON.stringify(userData));
+}
 
 // Обновляем баланс на странице
 function updateBalance() {
     document.getElementById('balance').textContent = userBalance + ' монет';
-    localStorage.setItem('taxiBalance', userBalance);
+    saveUserData(); // Сохраняем при каждом изменении баланса
 }
 
-// Рулетка с монетами
-const rouletteResults = [
-    { coins: 50, text: "🎉 Джекпот! +50 монет!", type: "big_win" },
-    { coins: 25, text: "🔥 Отлично! +25 монет!", type: "win" },
-    { coins: 15, text: "⭐ Хорошо! +15 монет!", type: "win" },
-    { coins: 10, text: "👍 Неплохо! +10 монет", type: "small_win" },
-    { coins: 5, text: "💫 Маловато, но +5 монет", type: "small_win" },
-    { coins: 0, text: "😔 Мимо! Попробуйте снова", type: "lose" },
-    { coins: 0, text: "💫 Почти! Еще попытка?", type: "lose" },
-    { coins: 0, text: "🎰 Упс! В следующий раз", type: "lose" },
-    { coins: 0, text: "🌟 Близко! Продолжайте", type: "lose" },
-    { coins: 0, text: "📉 Не в этот раз", type: "lose" },
-    { coins: 0, text: "💔 Почти угадали!", type: "lose" },
-    { coins: 0, text: "⚡ Почти! Не сдавайтесь", type: "lose" }
-];
-
-// Однорукий бандит
-const slotSymbols = ['🍒', '🍋', '⭐', '🍉', '🔔', '💎'];
-const slotPayouts = {
-    '🍒🍒🍒': 50,
-    '⭐⭐⭐': 100,
-    '💎💎💎': 200,
-    '🔔🔔🔔': 75
-};
-
-let isSpinning = false;
-let resultsHistory = JSON.parse(localStorage.getItem('taxiHistory')) || [];
-
-function createFloatingElements() {
-    const container = document.getElementById('floatingElements');
-    const elements = ['🚗', '🚕', '🚙', '💎', '⭐', '🎰'];
+// Создание рулетки с SVG (исправленная версия)
+function createRouletteWheel() {
+    const svg = document.getElementById('rouletteSvg');
+    svg.innerHTML = '';
     
-    for (let i = 0; i < 15; i++) {
-        const element = document.createElement('div');
-        element.className = 'floating-element';
-        element.textContent = elements[Math.floor(Math.random() * elements.length)];
-        element.style.left = Math.random() * 100 + 'vw';
-        element.style.animationDelay = Math.random() * 20 + 's';
-        element.style.fontSize = (Math.random() * 20 + 16) + 'px';
-        container.appendChild(element);
-    }
+    const segments = [
+        { coins: 30, text: "ДЖЕКПОТ", color: "#ff6b6b" },
+        { coins: 20, text: "20", color: "#4ecdc4" },
+        { coins: 15, text: "15", color: "#45b7d1" },
+        { coins: 10, text: "10", color: "#96ceb4" },
+        { coins: 8, text: "8", color: "#ffeaa7" },
+        { coins: 5, text: "5", color: "#fd79a8" },
+        { coins: 3, text: "3", color: "#a29bfe" },
+        { coins: 2, text: "2", color: "#fd9644" },
+        { coins: 1, text: "1", color: "#2bcbba" },
+        { coins: 0, text: "0", color: "#fc5c65" },
+        { coins: 0, text: "0", color: "#3867d6" },
+        { coins: 0, text: "0", color: "#8854d0" }
+    ];
+
+    const centerX = 200;
+    const centerY = 200;
+    const radius = 180;
+    
+    segments.forEach((segment, index) => {
+        const angle = (index * 30) * Math.PI / 180;
+        const nextAngle = ((index + 1) * 30) * Math.PI / 180;
+        
+        // Создаем сегмент
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        const x1 = centerX + radius * Math.sin(angle);
+        const y1 = centerY - radius * Math.cos(angle);
+        const x2 = centerX + radius * Math.sin(nextAngle);
+        const y2 = centerY - radius * Math.cos(nextAngle);
+        
+        path.setAttribute("d", `M${centerX},${centerY} L${x1},${y1} A${radius},${radius} 0 0,1 ${x2},${y2} Z`);
+        path.setAttribute("fill", segment.color);
+        path.setAttribute("stroke", "white");
+        path.setAttribute("stroke-width", "2");
+        svg.appendChild(path);
+        
+        // Добавляем текст (укороченные названия)
+        const textAngle = (index * 30 + 15) * Math.PI / 180;
+        const textRadius = radius * 0.7;
+        const textX = centerX + textRadius * Math.sin(textAngle);
+        const textY = centerY - textRadius * Math.cos(textAngle);
+        
+        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        text.setAttribute("x", textX);
+        text.setAttribute("y", textY);
+        text.setAttribute("text-anchor", "middle");
+        text.setAttribute("fill", "white");
+        text.setAttribute("font-weight", segment.coins === 30 ? "bold" : "normal");
+        text.setAttribute("font-size", segment.coins === 30 ? "14" : "12");
+        text.setAttribute("transform", `rotate(${index * 30 + 15}, ${textX}, ${textY})`);
+        text.textContent = segment.text;
+        svg.appendChild(text);
+    });
+    
+    // Центральный круг
+    const centerCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    centerCircle.setAttribute("cx", centerX);
+    centerCircle.setAttribute("cy", centerY);
+    centerCircle.setAttribute("r", "40");
+    centerCircle.setAttribute("fill", "#2d3436");
+    centerCircle.setAttribute("stroke", "white");
+    centerCircle.setAttribute("stroke-width", "3");
+    svg.appendChild(centerCircle);
+    
+    // Текст TAXI в центре
+    const taxiText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    taxiText.setAttribute("x", centerX);
+    taxiText.setAttribute("y", centerY + 5);
+    taxiText.setAttribute("text-anchor", "middle");
+    taxiText.setAttribute("fill", "white");
+    taxiText.setAttribute("font-weight", "bold");
+    taxiText.setAttribute("font-size", "16");
+    taxiText.textContent = "TAXI";
+    svg.appendChild(taxiText);
 }
 
 function spinRoulette() {
@@ -58,47 +132,81 @@ function spinRoulette() {
     updateBalance();
     isSpinning = true;
     
-    const wheel = document.getElementById('wheel');
     const resultDiv = document.getElementById('result');
     const spinBtn = document.getElementById('spinBtn');
     
     spinBtn.disabled = true;
     spinBtn.classList.remove('pulse');
     
+    const wheel = document.getElementById('wheel');
+    const svg = document.getElementById('rouletteSvg');
+    
+    // Сбрасываем трансформацию
     wheel.style.transition = 'none';
     wheel.style.transform = 'rotate(0deg)';
     
     setTimeout(() => {
-        const randomIndex = Math.floor(Math.random() * rouletteResults.length);
-        const result = rouletteResults[randomIndex];
-        const spinDegrees = 1440 + (randomIndex * 30) + Math.random() * 15;
+        const randomIndex = Math.floor(Math.random() * 12);
+        const coins = [30, 20, 15, 10, 8, 5, 3, 2, 1, 0, 0, 0][randomIndex];
+        
+        // Рассчитываем угол так, чтобы указатель указывал на выигравший сегмент
+        const targetAngle = 360 - (randomIndex * 30) - 15; // -15 чтобы указатель был посередине сегмента
+        const spinDegrees = 5 * 360 + targetAngle; // 5 полных оборотов + целевой угол
         
         wheel.style.transition = 'transform 4s cubic-bezier(0.1, 0.3, 0.2, 1)';
         wheel.style.transform = `rotate(${spinDegrees}deg)`;
         
         setTimeout(() => {
-            userBalance += result.coins;
+            userBalance += coins;
             updateBalance();
             
+            const segments = [
+                { coins: 30, text: "ДЖЕКПОТ" },
+                { coins: 20, text: "20 МОНЕТ" },
+                { coins: 15, text: "15 МОНЕТ" },
+                { coins: 10, text: "10 МОНЕТ" },
+                { coins: 8, text: "8 МОНЕТ" },
+                { coins: 5, text: "5 МОНЕТ" },
+                { coins: 3, text: "3 МОНЕТЫ" },
+                { coins: 2, text: "2 МОНЕТЫ" },
+                { coins: 1, text: "1 МОНЕТА" },
+                { coins: 0, text: "ПУСТО" },
+                { coins: 0, text: "ПУСТО" },
+                { coins: 0, text: "ПУСТО" }
+            ];
+            
+            const wonSegment = segments[randomIndex];
+            const message = coins > 0 ? 
+                `🎉 Вы выиграли ${coins} монет! (${wonSegment.text})` : 
+                `😔 ${wonSegment.text}. Попробуйте еще раз!`;
+            
             resultDiv.innerHTML = `
-                <div class="result-text">${result.text}</div>
+                <div class="result-text">${message}</div>
                 <div style="font-size: 14px; color: #666;">Баланс: ${userBalance} монет</div>
             `;
             
-            resultDiv.className = 'result ' + (result.coins > 0 ? 'win-glow' : '');
+            resultDiv.className = 'result ' + (coins > 0 ? 'win-glow' : '');
             
-            saveResult(result.text);
+            saveResult(`🎯 Рулетка: ${message}`);
             
             setTimeout(() => {
                 spinBtn.classList.add('pulse');
                 spinBtn.disabled = false;
                 isSpinning = false;
-                sendToGoogleSheets('roulette', 5, result.coins);
             }, 2000);
             
         }, 4000);
     }, 50);
 }
+
+// Однорукий бандит
+const slotSymbols = ['🍒', '🍋', '⭐', '🍉', '🔔', '💎'];
+const slotPayouts = {
+    '🍒🍒🍒': 50,
+    '⭐⭐⭐': 100,
+    '💎💎💎': 200,
+    '🔔🔔🔔': 75
+};
 
 function spinSlots() {
     if (isSpinning || userBalance < 10) return;
@@ -113,7 +221,6 @@ function spinSlots() {
     spinBtn.disabled = true;
     slots.forEach(slot => slot.classList.add('slot-spinning'));
     
-    const results = [];
     const spinDuration = 2000;
     const spinInterval = 100;
     
@@ -128,240 +235,4 @@ function spinSlots() {
         
         spins++;
         if (spins >= maxSpins) {
-            clearInterval(spinIntervalId);
-            
-            // Финальные результаты
-            const finalResults = slots.map(() => slotSymbols[Math.floor(Math.random() * slotSymbols.length)]);
-            slots.forEach((slot, i) => {
-                slot.textContent = finalResults[i];
-                slot.classList.remove('slot-spinning');
-            });
-            
-            // Проверка выигрыша
-            const resultStr = finalResults.join('');
-            let winAmount = 0;
-            let winMessage = "😔 Попробуйте еще раз!";
-            
-            if (slotPayouts[resultStr]) {
-                winAmount = slotPayouts[resultStr];
-                winMessage = `🎉 Выигрыш ${winAmount} монет!`;
-            } else if (finalResults[0] === finalResults[1] || finalResults[1] === finalResults[2]) {
-                winAmount = 15;
-                winMessage = `👍 Две одинаковые! +15 монет`;
-            }
-            
-            userBalance += winAmount;
-            updateBalance();
-            
-            document.getElementById('result').innerHTML = `
-                <div class="result-text">${winMessage}</div>
-                <div style="font-size: 14px; color: #666;">Баланс: ${userBalance} монет</div>
-            `;
-            
-            saveResult(`🎰 Слоты: ${winMessage}`);
-            
-            spinBtn.disabled = false;
-            isSpinning = false;
-        }
-    }, spinInterval);
-}
-
-function selectShopItem(index) {
-    document.querySelectorAll('.shop-item').forEach(item => item.classList.remove('selected'));
-    document.querySelectorAll('.shop-item')[index].classList.add('selected');
-    selectedShopItem = index;
-}
-
-function buyItem() {
-    if (selectedShopItem === null) return;
-    
-    const prices = [50, 100, 200, 1000];
-    const items = [
-        "🎁 Набор стикеров",
-        "☕ Кофе с водителем", 
-        "🚕 Поездка 15 мин",
-        "💵 Вывод денег"
-    ];
-    
-    const price = prices[selectedShopItem];
-    const item = items[selectedShopItem];
-    
-    if (userBalance >= price) {
-        userBalance -= price;
-        updateBalance();
-        
-        document.getElementById('result').innerHTML = `
-            <div class="result-text">🎉 Поздравляем с покупкой!</div>
-            <div style="font-size: 14px; color: #666;">Вы приобрели: ${item}</div>
-        `;
-
-        sendToGoogleSheets('purchase', price, 0);
-        saveResult(`🛍️ Куплен: ${item}`);
-        selectedShopItem = null;
-        document.querySelectorAll('.shop-item').forEach(item => item.classList.remove('selected'));
-    } else {
-        document.getElementById('result').innerHTML = `
-            <div class="result-text">❌ Недостаточно монет</div>
-            <div style="font-size: 14px; color: #666;">Нужно: ${price} монет</div>
-        `;
-    }
-}
-
-function saveResult(text) {
-    const resultData = {
-        text: text,
-        balance: userBalance,
-        timestamp: new Date().toLocaleString('ru-RU')
-    };
-    
-    resultsHistory.unshift(resultData);
-    if (resultsHistory.length > 20) resultsHistory = resultsHistory.slice(0, 20);
-    localStorage.setItem('taxiHistory', JSON.stringify(resultsHistory));
-}
-
-function displayHistory() {
-    const historyDiv = document.getElementById('history');
-    historyDiv.innerHTML = '';
-    
-    if (resultsHistory.length === 0) {
-        historyDiv.innerHTML = '<div style="text-align: center; color: #666;">История пуста</div>';
-        return;
-    }
-    
-    resultsHistory.forEach((item) => {
-        const historyItem = document.createElement('div');
-        historyItem.style.padding = '10px';
-        historyItem.style.borderBottom = '1px solid #eee';
-        historyItem.innerHTML = `
-            <div>${item.text}</div>
-            <small style="color: #666;">${item.timestamp}</small>
-        `;
-        historyDiv.appendChild(historyItem);
-    });
-}
-
-function toggleHistory() {
-    const historyDiv = document.getElementById('history');
-    if (historyDiv.style.display === 'block') {
-        historyDiv.style.display = 'none';
-    } else {
-        displayHistory();
-        historyDiv.style.display = 'block';
-    }
-}
-
-function showComingSoon(gameName) {
-    document.getElementById('result').innerHTML = `
-        <div class="result-text">🚧 Скоро будет!</div>
-        <div style="font-size: 14px; color: #666;">Игра "${gameName}" в разработке</div>
-    `;
-}
-
-function showGame(game) {
-    if (game !== 'roulette') showComingSoon('Эта игра');
-}
-
-// Инициализация
-document.addEventListener('DOMContentLoaded', function() {
-    createFloatingElements();
-    updateBalance();
-});
-// ==================== GOOGLE SHEETS СТАТИСТИКА (ДОПОЛНИТЕЛЬНО) ====================
-
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbydAP0_Ph1_onaQaVDw7jqbkU8KUqKsMln0JY7QlQUXkGeshbp77sF-KDkxJz7jwT2s/exec';
-let gameStats = JSON.parse(localStorage.getItem('taxiStats')) || [];
-
-// Функция получения ID пользователя
-function getUserId() {
-    let userId = localStorage.getItem('taxiUserId');
-    if (!userId) {
-        userId = 'user_' + Math.random().toString(36).substr(2, 9);
-        localStorage.setItem('taxiUserId', userId);
-    }
-    return userId;
-}
-
-// Локальное сохранение статистики
-function saveLocalStats(action, bet = 0, win = 0) {
-    const statEntry = {
-        timestamp: new Date().toLocaleString('ru-RU'),
-        action: action,
-        bet: bet,
-        win: win,
-        balance: userBalance,
-        user_id: getUserId()
-    };
-    
-    gameStats.push(statEntry);
-    if (gameStats.length > 500) gameStats = gameStats.slice(-500);
-    localStorage.setItem('taxiStats', JSON.stringify(gameStats));
-}
-
-// Отправка в Google Sheets (не блокирует игру)
-function sendToGoogleSheets(action, bet = 0, win = 0) {
-    const statsData = {
-        user_id: getUserId(),
-        action: action,
-        bet: bet,
-        win: win,
-        balance: userBalance,
-        user_agent: navigator.userAgent
-    };
-    
-    saveLocalStats(action, bet, win);
-    
-    // Отправляем асинхронно, не ждем ответа
-    fetch(GAS_URL, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(statsData)
-    }).catch(() => {}); // Игнорируем ошибки
-}
-
-// Уведомление
-function showNotification(message) {
-    const notification = document.createElement('div');
-    notification.style.cssText = `
-        position: fixed; top: 20px; right: 20px;
-        background: linear-gradient(45deg, #667eea, #764ba2);
-        color: white; padding: 10px 15px; border-radius: 8px;
-        z-index: 10000; font-size: 14px; font-weight: 600;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-    `;
-    notification.textContent = message;
-    document.body.appendChild(notification);
-    setTimeout(() => notification.remove(), 2000);
-}
-
-// Функция для просмотра статистики
-function showStats() {
-    const totalGames = gameStats.length;
-    const totalWins = gameStats.reduce((sum, stat) => sum + (stat.win || 0), 0);
-    const totalBets = gameStats.reduce((sum, stat) => sum + (stat.bet || 0), 0);
-    const profit = totalWins - totalBets;
-    
-    document.getElementById('result').innerHTML = `
-        <div class="result-text">📊 Статистика</div>
-        <div style="text-align: left; font-size: 14px; color: #666; line-height: 1.5;">
-            • Всего игр: ${totalGames}<br>
-            • Потрачено: ${totalBets} монет<br>
-            • Выиграно: ${totalWins} монет<br>
-            • Прибыль: <span style="color: ${profit >= 0 ? '#4CAF50' : '#f44336'}">${profit} монет</span><br>
-            • ID: ${getUserId()}
-        </div>
-        <button onclick="testConnection()" style="background: #FF9800; color: white; border: none; padding: 8px 16px; border-radius: 5px; margin: 5px; cursor: pointer;">
-            🔗 Проверить связь
-        </button>
-    `;
-}
-
-// Проверка связи
-async function testConnection() {
-    try {
-        const response = await fetch(GAS_URL);
-        const text = await response.text();
-        showNotification('✅ Связь с Google Sheets установлена');
-    } catch (error) {
-        showNotification('❌ Ошибка связи');
-    }
-}
+            clearInterval(spinIntervalId
