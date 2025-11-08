@@ -264,3 +264,102 @@ document.addEventListener('DOMContentLoaded', function() {
     createFloatingElements();
     updateBalance();
 });
+// ==================== GOOGLE SHEETS СТАТИСТИКА (ДОПОЛНИТЕЛЬНО) ====================
+
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbydAP0_Ph1_onaQaVDw7jqbkU8KUqKsMln0JY7QlQUXkGeshbp77sF-KDkxJz7jwT2s/exec';
+let gameStats = JSON.parse(localStorage.getItem('taxiStats')) || [];
+
+// Функция получения ID пользователя
+function getUserId() {
+    let userId = localStorage.getItem('taxiUserId');
+    if (!userId) {
+        userId = 'user_' + Math.random().toString(36).substr(2, 9);
+        localStorage.setItem('taxiUserId', userId);
+    }
+    return userId;
+}
+
+// Локальное сохранение статистики
+function saveLocalStats(action, bet = 0, win = 0) {
+    const statEntry = {
+        timestamp: new Date().toLocaleString('ru-RU'),
+        action: action,
+        bet: bet,
+        win: win,
+        balance: userBalance,
+        user_id: getUserId()
+    };
+    
+    gameStats.push(statEntry);
+    if (gameStats.length > 500) gameStats = gameStats.slice(-500);
+    localStorage.setItem('taxiStats', JSON.stringify(gameStats));
+}
+
+// Отправка в Google Sheets (не блокирует игру)
+function sendToGoogleSheets(action, bet = 0, win = 0) {
+    const statsData = {
+        user_id: getUserId(),
+        action: action,
+        bet: bet,
+        win: win,
+        balance: userBalance,
+        user_agent: navigator.userAgent
+    };
+    
+    saveLocalStats(action, bet, win);
+    
+    // Отправляем асинхронно, не ждем ответа
+    fetch(GAS_URL, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(statsData)
+    }).catch(() => {}); // Игнорируем ошибки
+}
+
+// Уведомление
+function showNotification(message) {
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed; top: 20px; right: 20px;
+        background: linear-gradient(45deg, #667eea, #764ba2);
+        color: white; padding: 10px 15px; border-radius: 8px;
+        z-index: 10000; font-size: 14px; font-weight: 600;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    `;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    setTimeout(() => notification.remove(), 2000);
+}
+
+// Функция для просмотра статистики
+function showStats() {
+    const totalGames = gameStats.length;
+    const totalWins = gameStats.reduce((sum, stat) => sum + (stat.win || 0), 0);
+    const totalBets = gameStats.reduce((sum, stat) => sum + (stat.bet || 0), 0);
+    const profit = totalWins - totalBets;
+    
+    document.getElementById('result').innerHTML = `
+        <div class="result-text">📊 Статистика</div>
+        <div style="text-align: left; font-size: 14px; color: #666; line-height: 1.5;">
+            • Всего игр: ${totalGames}<br>
+            • Потрачено: ${totalBets} монет<br>
+            • Выиграно: ${totalWins} монет<br>
+            • Прибыль: <span style="color: ${profit >= 0 ? '#4CAF50' : '#f44336'}">${profit} монет</span><br>
+            • ID: ${getUserId()}
+        </div>
+        <button onclick="testConnection()" style="background: #FF9800; color: white; border: none; padding: 8px 16px; border-radius: 5px; margin: 5px; cursor: pointer;">
+            🔗 Проверить связь
+        </button>
+    `;
+}
+
+// Проверка связи
+async function testConnection() {
+    try {
+        const response = await fetch(GAS_URL);
+        const text = await response.text();
+        showNotification('✅ Связь с Google Sheets установлена');
+    } catch (error) {
+        showNotification('❌ Ошибка связи');
+    }
+}
