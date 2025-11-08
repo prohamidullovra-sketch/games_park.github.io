@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Taxi Casino Hub</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="floating-elements" id="floatingElements"></div>
+    
+    <div class="game-hub">
+        <!-- Левый сайдбар -->
+        <div class="sidebar">
+            <div class="balance-container">
+                <div>Ваш баланс</div>
+                <div class="balance" id="balance">0 монет</div>
+                <div style="font-size: 12px; color: #666;">10 монет = 1 рубль</div>
+            </div>
+
+            <h2>🎮 Игровой Хаб</h2>
+            <div class="game-buttons">
+                <button class="game-btn active" onclick="showGame('roulette')">🎯 Такси Рулетка</button>
+                <button class="game-btn" onclick="showComingSoon('Сапёр')">💣 Сапёр</button>
+                <button class="game-btn" onclick="showComingSoon('Три в ряд')">🧩 Три в ряд</button>
+            </div>
+
+            <!-- Однорукий бандит -->
+            <div class="slot-machine">
+                <h3>🎰 Однорукий бандит</h3>
+                <div class="slots-container">
+                    <div class="slot" id="slot1">🍒</div>
+                    <div class="slot" id="slot2">🍋</div>
+                    <div class="slot" id="slot3">⭐</div>
+                </div>
+                <div class="slot-machine-buttons">
+                    <button class="spin-slot-btn" onclick="spinSlots()" id="spinSlotBtn">Крутить (10 монет)</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Основной контент -->
+        <div class="main-content">
+            <div class="game-header">
+                <div class="taxi-icon">🚖</div>
+                <h1>Такси Казино Хаб</h1>
+                <p class="subtitle">Зарабатывайте монеты и обменивайте на реальные призы!</p>
+            </div>
+
+            <div class="roulette-section">
+                <div class="roulette-container">
+                    <div class="pointer"></div>
+                    <div class="wheel" id="wheel"></div>
+                </div>
+                
+                <div class="result" id="result">
+                    <div class="result-text">Крутите рулетку и выигрывайте монеты!</div>
+                </div>
+                
+                <div class="buttons">
+                    <button class="spin-btn pulse" id="spinBtn" onclick="spinRoulette()">🎯 Крутить рулетку (5 монет)</button>
+                    <button class="history-btn" onclick="toggleHistory()">📊 История</button>
+                </div>
+                
+                <div class="history" id="history"></div>
+            </div>
+        </div>
+
+        <!-- Правый сайдбар - Магазин -->
+        <div class="sidebar">
+            <div class="shop">
+                <h3>🛍️ Магазин призов</h3>
+                <div class="shop-items">
+                    <div class="shop-item" onclick="selectShopItem(0)">
+                        <div>🎁 Набор стикеров</div>
+                        <div class="item-price">50 монет</div>
+                    </div>
+                    <div class="shop-item" onclick="selectShopItem(1)">
+                        <div>☕ Кофе с водителем</div>
+                        <div class="item-price">100 монет</div>
+                    </div>
+                    <div class="shop-item" onclick="selectShopItem(2)">
+                        <div>🚕 Поездка 15 мин</div>
+                        <div class="item-price">200 монет</div>
+                    </div>
+                    <div class="shop-item" onclick="selectShopItem(3)">
+                        <div>💵 Вывод денег</div>
+                        <div class="item-price">1000 монет</div>
+                    </div>
+                </div>
+                <div class="shop-buttons">
+                    <button class="buy-btn" onclick="buyItem()" id="buyBtn">Подтвердить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/script.js"></script>
+</body>
+</html>
