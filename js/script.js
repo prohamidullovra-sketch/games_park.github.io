@@ -1,238 +1,266 @@
-// ==================== GOOGLE SHEETS INTEGRATION ====================
+// Система монет
+let userBalance = parseInt(localStorage.getItem('taxiBalance')) || 100;
+let selectedShopItem = null;
 
-// Ваш ОБНОВЛЕННЫЙ URL Google Apps Script
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbydAP0_Ph1_onaQaVDw7jqbkU8KUqKsMln0JY7QlQUXkGeshbp77sF-KDkxJz7jwT2s/exec';
-
-// Глобальная переменная для статистики
-let gameStats = JSON.parse(localStorage.getItem('taxiStats')) || [];
-
-// Функция получения ID пользователя
-function getUserId() {
-    let userId = localStorage.getItem('taxiUserId');
-    if (!userId) {
-        userId = 'user_' + Math.random().toString(36).substr(2, 9);
-        localStorage.setItem('taxiUserId', userId);
-    }
-    return userId;
+// Обновляем баланс на странице
+function updateBalance() {
+    document.getElementById('balance').textContent = userBalance + ' монет';
+    localStorage.setItem('taxiBalance', userBalance);
 }
 
-// Сохранение локальной статистики
-function saveLocalStats(action, bet = 0, win = 0) {
-    const statEntry = {
-        timestamp: new Date().toLocaleString('ru-RU'),
-        action: action,
-        bet: bet,
-        win: win,
-        balance: userBalance,
-        user_id: getUserId()
-    };
-    
-    gameStats.push(statEntry);
-    
-    // Храним только последние 500 записей
-    if (gameStats.length > 500) {
-        gameStats = gameStats.slice(-500);
-    }
-    
-    localStorage.setItem('taxiStats', JSON.stringify(gameStats));
-}
+// Рулетка с монетами
+const rouletteResults = [
+    { coins: 50, text: "🎉 Джекпот! +50 монет!", type: "big_win" },
+    { coins: 25, text: "🔥 Отлично! +25 монет!", type: "win" },
+    { coins: 15, text: "⭐ Хорошо! +15 монет!", type: "win" },
+    { coins: 10, text: "👍 Неплохо! +10 монет", type: "small_win" },
+    { coins: 5, text: "💫 Маловато, но +5 монет", type: "small_win" },
+    { coins: 0, text: "😔 Мимо! Попробуйте снова", type: "lose" },
+    { coins: 0, text: "💫 Почти! Еще попытка?", type: "lose" },
+    { coins: 0, text: "🎰 Упс! В следующий раз", type: "lose" },
+    { coins: 0, text: "🌟 Близко! Продолжайте", type: "lose" },
+    { coins: 0, text: "📉 Не в этот раз", type: "lose" },
+    { coins: 0, text: "💔 Почти угадали!", type: "lose" },
+    { coins: 0, text: "⚡ Почти! Не сдавайтесь", type: "lose" }
+];
 
-// Отправка в Google Sheets
-async function sendToGoogleSheets(action, bet = 0, win = 0) {
-    const statsData = {
-        user_id: getUserId(),
-        action: action,
-        bet: bet,
-        win: win,
-        balance: userBalance,
-        user_agent: navigator.userAgent
-    };
+// Однорукий бандит
+const slotSymbols = ['🍒', '🍋', '⭐', '🍉', '🔔', '💎'];
+const slotPayouts = {
+    '🍒🍒🍒': 50,
+    '⭐⭐⭐': 100,
+    '💎💎💎': 200,
+    '🔔🔔🔔': 75
+};
+
+let isSpinning = false;
+let resultsHistory = JSON.parse(localStorage.getItem('taxiHistory')) || [];
+
+function createFloatingElements() {
+    const container = document.getElementById('floatingElements');
+    const elements = ['🚗', '🚕', '🚙', '💎', '⭐', '🎰'];
     
-    console.log('📊 Отправка в Google Sheets:', statsData);
-    
-    // Всегда сохраняем локально
-    saveLocalStats(action, bet, win);
-    
-    // Пытаемся отправить в Google Sheets
-    try {
-        const response = await fetch(GAS_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(statsData)
-        });
-        
-        const result = await response.json();
-        console.log('✅ Google Sheets ответ:', result);
-        showNotification('☁️ Данные в облаке!');
-        
-    } catch (error) {
-        console.log('⚠️ Не удалось отправить в облако, данные сохранены локально');
-        showNotification('💾 Данные локально');
+    for (let i = 0; i < 15; i++) {
+        const element = document.createElement('div');
+        element.className = 'floating-element';
+        element.textContent = elements[Math.floor(Math.random() * elements.length)];
+        element.style.left = Math.random() * 100 + 'vw';
+        element.style.animationDelay = Math.random() * 20 + 's';
+        element.style.fontSize = (Math.random() * 20 + 16) + 'px';
+        container.appendChild(element);
     }
 }
 
-// Функция уведомления
-function showNotification(message) {
-    // Удаляем старое уведомление если есть
-    const oldNotification = document.getElementById('cloud-notification');
-    if (oldNotification) {
-        oldNotification.remove();
-    }
+function spinRoulette() {
+    if (isSpinning || userBalance < 5) return;
     
-    const notification = document.createElement('div');
-    notification.id = 'cloud-notification';
-    notification.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: linear-gradient(45deg, #667eea, #764ba2);
-        color: white;
-        padding: 12px 18px;
-        border-radius: 8px;
-        z-index: 10000;
-        font-size: 14px;
-        font-weight: 600;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-        border: 2px solid rgba(255,255,255,0.3);
-        animation: slideIn 0.3s ease-out;
-    `;
-    notification.textContent = message;
-    document.body.appendChild(notification);
+    userBalance -= 5;
+    updateBalance();
+    isSpinning = true;
+    
+    const wheel = document.getElementById('wheel');
+    const resultDiv = document.getElementById('result');
+    const spinBtn = document.getElementById('spinBtn');
+    
+    spinBtn.disabled = true;
+    spinBtn.classList.remove('pulse');
+    
+    wheel.style.transition = 'none';
+    wheel.style.transform = 'rotate(0deg)';
     
     setTimeout(() => {
-        if (notification.parentNode) {
-            notification.style.animation = 'slideOut 0.3s ease-in';
-            setTimeout(() => {
-                if (notification.parentNode) {
-                    notification.remove();
-                }
-            }, 300);
-        }
-    }, 3000);
-}
-
-// Добавляем CSS анимации
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes slideIn {
-        from { transform: translateX(100px); opacity: 0; }
-        to { transform: translateX(0); opacity: 1; }
-    }
-    @keyframes slideOut {
-        from { transform: translateX(0); opacity: 1; }
-        to { transform: translateX(100px); opacity: 0; }
-    }
-`;
-document.head.appendChild(style);
-
-// ==================== ПРОВЕРКА РАБОТЫ ====================
-
-// Проверка связи с Google Sheets
-async function testConnection() {
-    try {
-        const response = await fetch(GAS_URL);
-        const text = await response.text();
-        document.getElementById('result').innerHTML = `
-            <div class="result-text">✅ Связь с Google Sheets установлена!</div>
-            <div style="font-size: 14px; color: #666;">Сервер отвечает: "${text}"</div>
-            <div style="margin-top: 15px;">
-                <button onclick="openGoogleSheets()" style="background: #34A853; color: white; border: none; padding: 8px 16px; border-radius: 5px; margin: 5px; cursor: pointer;">
-                    📊 Открыть таблицу
-                </button>
-                <button onclick="clearAllData()" style="background: #f44336; color: white; border: none; padding: 8px 16px; border-radius: 5px; margin: 5px; cursor: pointer;">
-                    🗑️ Очистить локальные данные
-                </button>
-            </div>
-        `;
-    } catch (error) {
-        document.getElementById('result').innerHTML = `
-            <div class="result-text">❌ Ошибка связи с Google Sheets</div>
-            <div style="font-size: 14px; color: #666;">${error.message}</div>
-            <div style="margin-top: 10px; color: #666;">
-                Данные сохраняются локально и будут отправлены при восстановлении связи
-            </div>
-        `;
-    }
-}
-
-// Показать облачную статистику
-function showCloudStats() {
-    const totalGames = gameStats.length;
-    const totalWins = gameStats.reduce((sum, stat) => sum + (stat.win || 0), 0);
-    const totalBets = gameStats.reduce((sum, stat) => sum + (stat.bet || 0), 0);
-    const profit = totalWins - totalBets;
-    
-    const rouletteGames = gameStats.filter(s => s.action.includes('roulette')).length;
-    const slotGames = gameStats.filter(s => s.action.includes('slot')).length;
-    const purchases = gameStats.filter(s => s.action.includes('purchase')).length;
-    
-    const statsHTML = `
-        <div class="result-text">☁️ Облачная статистика</div>
-        <div style="text-align: left; font-size: 14px; color: #666; line-height: 1.5;">
-            <strong>📈 Ваша активность:</strong><br>
-            • Всего игр: ${totalGames}<br>
-            • Рулетка: ${rouletteGames} игр<br>
-            • Слоты: ${slotGames} игр<br>
-            • Покупки: ${purchases}<br><br>
-            
-            <strong>💰 Финансы:</strong><br>
-            • Потрачено: ${totalBets} монет<br>
-            • Выиграно: ${totalWins} монет<br>
-            • Прибыль: <span style="color: ${profit >= 0 ? '#4CAF50' : '#f44336'}">${profit} монет</span><br><br>
-            
-            <strong>👤 Профиль:</strong><br>
-            • ID игрока: ${getUserId()}<br>
-            • Текущий баланс: ${userBalance} монет
-        </div>
-        <div style="margin-top: 15px;">
-            <button onclick="testConnection()" style="background: #FF9800; color: white; border: none; padding: 8px 16px; border-radius: 5px; margin: 5px; cursor: pointer;">
-                🔗 Проверить связь
-            </button>
-            <button onclick="openGoogleSheets()" style="background: #34A853; color: white; border: none; padding: 8px 16px; border-radius: 5px; margin: 5px; cursor: pointer;">
-                📊 Открыть таблицу
-            </button>
-            <button onclick="exportStats()" style="background: #2196F3; color: white; border: none; padding: 8px 16px; border-radius: 5px; margin: 5px; cursor: pointer;">
-                💾 Экспорт данных
-            </button>
-        </div>
-    `;
-    
-    document.getElementById('result').innerHTML = statsHTML;
-}
-
-// Открыть Google Таблицу
-function openGoogleSheets() {
-    window.open('https://docs.google.com/spreadsheets/d/17t8gn3D_i-xhUv_iOJL6GPdlJDywdAaSaKmUBOoE15E/edit', '_blank');
-}
-
-// Экспорт статистики
-function exportStats() {
-    const dataStr = JSON.stringify(gameStats, null, 2);
-    const dataBlob = new Blob([dataStr], {type: 'application/json'});
-    
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(dataBlob);
-    link.download = `taxi-stats-${getUserId()}-${new Date().toISOString().split('T')[0]}.json`;
-    link.click();
-}
-
-// Очистка локальных данных
-function clearAllData() {
-    if (confirm('Очистить всю локальную статистику? Данные в Google Sheets останутся.')) {
-        gameStats = [];
-        localStorage.removeItem('taxiStats');
-        localStorage.removeItem('taxiUserId');
-        localStorage.removeItem('taxiBalance');
-        localStorage.removeItem('taxiHistory');
+        const randomIndex = Math.floor(Math.random() * rouletteResults.length);
+        const result = rouletteResults[randomIndex];
+        const spinDegrees = 1440 + (randomIndex * 30) + Math.random() * 15;
         
-        userBalance = 100;
+        wheel.style.transition = 'transform 4s cubic-bezier(0.1, 0.3, 0.2, 1)';
+        wheel.style.transform = `rotate(${spinDegrees}deg)`;
+        
+        setTimeout(() => {
+            userBalance += result.coins;
+            updateBalance();
+            
+            resultDiv.innerHTML = `
+                <div class="result-text">${result.text}</div>
+                <div style="font-size: 14px; color: #666;">Баланс: ${userBalance} монет</div>
+            `;
+            
+            resultDiv.className = 'result ' + (result.coins > 0 ? 'win-glow' : '');
+            
+            saveResult(result.text);
+            
+            setTimeout(() => {
+                spinBtn.classList.add('pulse');
+                spinBtn.disabled = false;
+                isSpinning = false;
+            }, 2000);
+            
+        }, 4000);
+    }, 50);
+}
+
+function spinSlots() {
+    if (isSpinning || userBalance < 10) return;
+    
+    userBalance -= 10;
+    updateBalance();
+    isSpinning = true;
+    
+    const slots = [document.getElementById('slot1'), document.getElementById('slot2'), document.getElementById('slot3')];
+    const spinBtn = document.getElementById('spinSlotBtn');
+    
+    spinBtn.disabled = true;
+    slots.forEach(slot => slot.classList.add('slot-spinning'));
+    
+    const results = [];
+    const spinDuration = 2000;
+    const spinInterval = 100;
+    
+    let spins = 0;
+    const maxSpins = spinDuration / spinInterval;
+    
+    const spinIntervalId = setInterval(() => {
+        slots.forEach((slot, index) => {
+            if (spins > maxSpins * (index + 1) / 3) return;
+            slot.textContent = slotSymbols[Math.floor(Math.random() * slotSymbols.length)];
+        });
+        
+        spins++;
+        if (spins >= maxSpins) {
+            clearInterval(spinIntervalId);
+            
+            // Финальные результаты
+            const finalResults = slots.map(() => slotSymbols[Math.floor(Math.random() * slotSymbols.length)]);
+            slots.forEach((slot, i) => {
+                slot.textContent = finalResults[i];
+                slot.classList.remove('slot-spinning');
+            });
+            
+            // Проверка выигрыша
+            const resultStr = finalResults.join('');
+            let winAmount = 0;
+            let winMessage = "😔 Попробуйте еще раз!";
+            
+            if (slotPayouts[resultStr]) {
+                winAmount = slotPayouts[resultStr];
+                winMessage = `🎉 Выигрыш ${winAmount} монет!`;
+            } else if (finalResults[0] === finalResults[1] || finalResults[1] === finalResults[2]) {
+                winAmount = 15;
+                winMessage = `👍 Две одинаковые! +15 монет`;
+            }
+            
+            userBalance += winAmount;
+            updateBalance();
+            
+            document.getElementById('result').innerHTML = `
+                <div class="result-text">${winMessage}</div>
+                <div style="font-size: 14px; color: #666;">Баланс: ${userBalance} монет</div>
+            `;
+            
+            saveResult(`🎰 Слоты: ${winMessage}`);
+            
+            spinBtn.disabled = false;
+            isSpinning = false;
+        }
+    }, spinInterval);
+}
+
+function selectShopItem(index) {
+    document.querySelectorAll('.shop-item').forEach(item => item.classList.remove('selected'));
+    document.querySelectorAll('.shop-item')[index].classList.add('selected');
+    selectedShopItem = index;
+}
+
+function buyItem() {
+    if (selectedShopItem === null) return;
+    
+    const prices = [50, 100, 200, 1000];
+    const items = [
+        "🎁 Набор стикеров",
+        "☕ Кофе с водителем", 
+        "🚕 Поездка 15 мин",
+        "💵 Вывод денег"
+    ];
+    
+    const price = prices[selectedShopItem];
+    const item = items[selectedShopItem];
+    
+    if (userBalance >= price) {
+        userBalance -= price;
         updateBalance();
         
         document.getElementById('result').innerHTML = `
-            <div class="result-text">🔄 Данные очищены</div>
-            <div style="font-size: 14px; color: #666;">Баланс сброшен до 100 монет</div>
+            <div class="result-text">🎉 Поздравляем с покупкой!</div>
+            <div style="font-size: 14px; color: #666;">Вы приобрели: ${item}</div>
+        `;
+        
+        saveResult(`🛍️ Куплен: ${item}`);
+        selectedShopItem = null;
+        document.querySelectorAll('.shop-item').forEach(item => item.classList.remove('selected'));
+    } else {
+        document.getElementById('result').innerHTML = `
+            <div class="result-text">❌ Недостаточно монет</div>
+            <div style="font-size: 14px; color: #666;">Нужно: ${price} монет</div>
         `;
     }
 }
+
+function saveResult(text) {
+    const resultData = {
+        text: text,
+        balance: userBalance,
+        timestamp: new Date().toLocaleString('ru-RU')
+    };
+    
+    resultsHistory.unshift(resultData);
+    if (resultsHistory.length > 20) resultsHistory = resultsHistory.slice(0, 20);
+    localStorage.setItem('taxiHistory', JSON.stringify(resultsHistory));
+}
+
+function displayHistory() {
+    const historyDiv = document.getElementById('history');
+    historyDiv.innerHTML = '';
+    
+    if (resultsHistory.length === 0) {
+        historyDiv.innerHTML = '<div style="text-align: center; color: #666;">История пуста</div>';
+        return;
+    }
+    
+    resultsHistory.forEach((item) => {
+        const historyItem = document.createElement('div');
+        historyItem.style.padding = '10px';
+        historyItem.style.borderBottom = '1px solid #eee';
+        historyItem.innerHTML = `
+            <div>${item.text}</div>
+            <small style="color: #666;">${item.timestamp}</small>
+        `;
+        historyDiv.appendChild(historyItem);
+    });
+}
+
+function toggleHistory() {
+    const historyDiv = document.getElementById('history');
+    if (historyDiv.style.display === 'block') {
+        historyDiv.style.display = 'none';
+    } else {
+        displayHistory();
+        historyDiv.style.display = 'block';
+    }
+}
+
+function showComingSoon(gameName) {
+    document.getElementById('result').innerHTML = `
+        <div class="result-text">🚧 Скоро будет!</div>
+        <div style="font-size: 14px; color: #666;">Игра "${gameName}" в разработке</div>
+    `;
+}
+
+function showGame(game) {
+    if (game !== 'roulette') showComingSoon('Эта игра');
+}
+
+// Инициализация
+document.addEventListener('DOMContentLoaded', function() {
+    createFloatingElements();
+    updateBalance();
+});
